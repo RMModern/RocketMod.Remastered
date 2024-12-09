@@ -3,11 +3,14 @@ using System.Collections;
 using System.ComponentModel;
 using System.Reflection;
 using System.Text;
+using Rocket.API.Logging;
 
 namespace Rocket.Core.Logging
 {
     public partial class Logger
     {
+        public static ILoggingService LoggingService = new ConsoleLoggingService();
+        
         private static string lastAssembly = "";
 
         [Obsolete("Log(string message,bool sendToConsole) is obsolete, use Log(string message,ConsoleColor color) instead",true)]
@@ -18,7 +21,7 @@ namespace Rocket.Core.Logging
 
         public static void Log(string message, ConsoleColor color = ConsoleColor.White)
         {
-            if (message == null) return;
+            if (string.IsNullOrEmpty(message)) return;
             string assembly = "";
             try
             {
@@ -149,13 +152,18 @@ namespace Rocket.Core.Logging
                 System.Diagnostics.StackTrace stackTrace = new System.Diagnostics.StackTrace();
                 if (stackTrace.FrameCount != 0)
                 {
-                    source = stackTrace.GetFrame(1).GetMethod().DeclaringType.Assembly.GetName().Name;
-                    assembly = stackTrace.GetFrame(1).GetMethod().DeclaringType.Assembly.GetName().Name;
+                    var declaringType = stackTrace.GetFrame(1).GetMethod().DeclaringType;
+                    var assemblyName = declaringType!.Assembly.GetName();
+                    source = assemblyName.Name;
+                    assembly = assemblyName.Name;
                 }
                 if (assembly.StartsWith("Rocket.") && stackTrace.FrameCount > 1)
                 {
-                    source = stackTrace.GetFrame(2).GetMethod().Name;
-                    assembly = stackTrace.GetFrame(2).GetMethod().DeclaringType.Assembly.GetName().Name;
+                    var method = stackTrace.GetFrame(2).GetMethod();
+                    var declaringType = method.DeclaringType;
+                    var assemblyName = declaringType!.Assembly.GetName();
+                    source = method.Name;
+                    assembly = assemblyName.Name;
                 }
                 lastAssembly = assembly;
 
@@ -173,20 +181,16 @@ namespace Rocket.Core.Logging
         {
             if (type == ELogType.Error || type == ELogType.Exception)
             {
-                SDG.Unturned.CommandWindow.LogError(message);
+                LoggingService.LogError(message, color);
             }
             else if (type == ELogType.Warning)
             {
-                SDG.Unturned.CommandWindow.LogWarning(message);
+                LoggingService.LogWarning(message, color);
             }
             else
             {
-                SDG.Unturned.CommandWindow.Log(message);
+                LoggingService.Log(message, color);
             }
-
-            // LDM: originally Rocket called ProcessLog here to write the message to their log file as well as the Console.
-            // After LDM was updated to use the CommandWindow methods instead of the Console directly this caused each 
-            // message to be logged twice because Rocket logs the output of CommandWindow.onCommandWindowOutputted.
         }
         
         /// <summary>

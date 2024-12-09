@@ -1,0 +1,1 @@
+﻿global using Logger = Rocket.Core.Logging.Logger;
