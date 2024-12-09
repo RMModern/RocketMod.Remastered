@@ -7,7 +7,7 @@
 		<RootNamespace>Rocket.Unturned</RootNamespace>
 		<AssemblyName>Rocket.Unturned</AssemblyName>
 		<RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
-		<Version>5.0.0.0</Version>
+		<Version>5.0.0.1</Version>
 		<OutDir>$(ProjectDir)../build/Rocket.Unturned/</OutDir>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
