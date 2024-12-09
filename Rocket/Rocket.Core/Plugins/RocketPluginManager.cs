@@ -6,6 +6,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using System.Linq;
+using Rocket.Common;
 using Rocket.Core.Extensions;
 
 namespace Rocket.Core.Plugins
@@ -17,51 +18,72 @@ namespace Rocket.Core.Plugins
 
         private static List<Assembly> pluginAssemblies;
         private static List<GameObject> plugins = new List<GameObject>();
-        internal static List<IRocketPlugin> Plugins { get { return plugins.Select(g => g.GetComponent<IRocketPlugin>()).Where(p => p != null).ToList<IRocketPlugin>(); } }
-        
-        /// <summary>
-        /// Maps assembly name to .dll file path.
-        /// </summary>
-        private Dictionary<AssemblyName, string> libraries = new Dictionary<AssemblyName, string>();
 
-        public List<IRocketPlugin> GetPlugins()
+        internal static List<IRocketPlugin> Plugins => plugins
+            .Select(g => g.GetComponent<IRocketPlugin>())
+            .Where(p => p != null)
+            .ToList();
+
+        private Dictionary<AssemblyName, string> libraries = new();
+
+        public List<IRocketPlugin> GetPlugins() => Plugins;
+
+        public IRocketPlugin? GetPlugin(Assembly assembly) => plugins
+            .Select(x => x.GetComponent<IRocketPlugin>())
+            .FirstOrDefault(x => x is not null && x.GetType().Assembly == assembly);
+
+        public IRocketPlugin? GetPlugin(string name) => plugins
+            .Select(x => x.GetComponent<IRocketPlugin>())
+            .FirstOrDefault(x => x is not null && x.Name == name);
+
+        private void Awake()
         {
-            return Plugins;
-        }
+            new FileSystemWatcher(Environment.PluginsDirectory) { EnableRaisingEvents = true }.Changed +=
+                (object sender, FileSystemEventArgs e) => { Reload(); };
 
-        public IRocketPlugin GetPlugin(Assembly assembly)
-        {
-            return plugins.Select(g => g.GetComponent<IRocketPlugin>()).Where(p => p != null && p.GetType().Assembly == assembly).FirstOrDefault();
-        }
-
-        public IRocketPlugin GetPlugin(string name)
-        {
-            return plugins.Select(g => g.GetComponent<IRocketPlugin>()).Where(p => p != null && ((IRocketPlugin)p).Name == name).FirstOrDefault();
-        }
-
-        private Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)
-        {
-            try
-            {
-                AssemblyName requestedName = new AssemblyName(args.Name);
-                var bestMatch = libraries.FirstOrDefault(lib => string.Equals(lib.Key.Name, requestedName.Name) && lib.Key.Version >= requestedName.Version);
-                if (!string.IsNullOrEmpty(bestMatch.Value))
-                {
-                    return Assembly.Load(File.ReadAllBytes(bestMatch.Value));
-                }
-            }
-            catch (Exception ex)
-            {
-                Logging.Logger.LogException(ex, "Caught exception resolving dependency: " + args.Name);
-            }
-
-            Logging.Logger.LogError("Could not find dependency: " + args.Name);
-            return null;
-        }
-
-        private void Awake() {
             AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
-            SDG.Framework.Modules.ModuleHook.PreVanillaAssemblyResolvePostRedirects += OnAssemblyResolve;
+            AppDomain.CurrentDomain.TypeResolve += OnAssemblyResolve;
+        }
+
+        private record struct AssemblyLoadManifest(AssemblyName AssemblyName, Func<Assembly> Assembly);
+
+        private Assembly? OnAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            var assemblyName = new AssemblyName(args.Name);
+
+            var availableLoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(x => new AssemblyLoadManifest(x.GetName(), () => x))
+                .Where(x => x.AssemblyName.Name == assemblyName.Name);
+
+            var availableLibraries = libraries
+                .Select(x => new AssemblyLoadManifest(x.Key, () =>
+                {
+                    var librariesPath = Path.Combine(Directory.GetCurrentDirectory(), Environment.LibrariesDirectory);
+                    if(R.Settings.Instance.LogLibraries)
+                        Logger.Log($"Loading library '{x.Key.Name}' " +
+                                   $"v{x.Key.Version} " +
+                                   $"from '{x.Value.Replace(librariesPath, @"$Libraries")}'.", 
+                                   ConsoleColor.Gray);
+                    return Assembly.LoadFile(x.Value);
+                }))
+                .Where(x => x.AssemblyName.Name == assemblyName.Name);
+
+            var availableAssemblies =
+                availableLoadedAssemblies
+                    .Concat(availableLibraries)
+                    .OrderBy(x => x.AssemblyName.Version);
+
+            foreach (var manifest in availableAssemblies)
+            {
+                if (manifest.AssemblyName.Version < assemblyName.Version)
+                    continue;
+
+                return manifest.Assembly(); //Hotloader.LoadAssembly(library.Value);
+            }
+
+            Logger.LogError($"Could not find dependency: {args.Name}");
+
+            return null;
         }
 
         private void Start()
@@ -69,28 +91,28 @@ namespace Rocket.Core.Plugins
             loadPlugins();
         }
 
-        public Type GetMainTypeFromAssembly(Assembly assembly)
-        {
-            return RocketHelper.GetTypesFromInterface(assembly, "IRocketPlugin").FirstOrDefault();
-        }
+        public Type? GetMainTypeFromAssembly(Assembly assembly) =>
+            RocketHelper.GetTypesFromInterface(assembly, nameof(IRocketPlugin)).FirstOrDefault();
 
         private void loadPlugins()
         {
-            libraries = FindAssembliesInDirectory(Environment.LibrariesDirectory);
-            foreach(KeyValuePair<AssemblyName,string> pair in FindAssembliesInDirectory(Environment.PluginsDirectory))
-            {
-                if(!libraries.ContainsKey(pair.Key))
-                    libraries.Add(pair.Key,pair.Value);
-            }
+            Console.WriteLine();
+
+            libraries = GetAssembliesFromDirectory(Environment.LibrariesDirectory);
+            foreach (var kvp in GetAssembliesFromDirectory(Environment.PluginsDirectory))
+                libraries[kvp.Key] = kvp.Value;
 
             pluginAssemblies = LoadAssembliesFromDirectory(Environment.PluginsDirectory);
-            List<Type> pluginImplemenations = RocketHelper.GetTypesFromInterface(pluginAssemblies, "IRocketPlugin");
-            foreach (Type pluginType in pluginImplemenations)
+
+            Console.WriteLine();
+            var pluginImplemenations = RocketHelper.GetTypesFromInterface(pluginAssemblies, nameof(IRocketPlugin));
+            foreach (var pluginType in pluginImplemenations)
             {
-                GameObject plugin = new GameObject(pluginType.Name, pluginType);
+                var plugin = new GameObject(pluginType.Name, pluginType);
                 DontDestroyOnLoad(plugin);
                 plugins.Add(plugin);
             }
+
             OnPluginsLoaded.TryInvoke();
         }
 
@@ -102,75 +124,72 @@ namespace Rocket.Core.Plugins
             plugins.Clear();
         }
 
+        private void OnDestroy()
+        {
+            unloadPlugins();
+        }
+
         internal void Reload()
         {
             unloadPlugins();
             loadPlugins();
         }
 
-        public static Dictionary<string, string> GetAssembliesFromDirectory(string directory, string extension = "*.dll")
+        public static Dictionary<AssemblyName, string> GetAssembliesFromDirectory(string directory,
+            string extension = "*.dll")
         {
-            Dictionary<string, string> l = new Dictionary<string, string>();
-            IEnumerable<FileInfo> libraries = new DirectoryInfo(directory).GetFiles(extension, SearchOption.AllDirectories);
-            foreach (FileInfo library in libraries)
-            {
-                try
-                {
-                    AssemblyName name = AssemblyName.GetAssemblyName(library.FullName);
-                    l.Add(name.FullName, library.FullName);
-                }
-                catch { }
-            }
-            return l;
-        }
+            var libraries = new Dictionary<AssemblyName, string>();
 
-        /// <summary>
-        /// Replacement for GetAssembliesFromDirectory using AssemblyName as key rather than string.
-        /// </summary>
-        private static Dictionary<AssemblyName, string> FindAssembliesInDirectory(string directory)
-        {
-            Dictionary<AssemblyName, string> l = new Dictionary<AssemblyName, string>();
-            IEnumerable<FileInfo> libraries = new DirectoryInfo(directory).GetFiles("*.dll", SearchOption.AllDirectories);
-            foreach (FileInfo library in libraries)
+            var files = new DirectoryInfo(directory).GetFiles(extension, SearchOption.AllDirectories);
+            foreach (var file in files)
             {
                 try
                 {
-                    AssemblyName name = AssemblyName.GetAssemblyName(library.FullName);
-                    l.Add(name, library.FullName);
+                    var name = AssemblyName.GetAssemblyName(file.FullName);
+                    libraries.Add(name, file.FullName);
                 }
-                catch { }
+                catch
+                {
+                }
             }
-            return l;
+
+            return libraries;
         }
 
         public static List<Assembly> LoadAssembliesFromDirectory(string directory, string extension = "*.dll")
         {
-            List<Assembly> assemblies = new List<Assembly>();
-            IEnumerable<FileInfo> pluginsLibraries = new DirectoryInfo(directory).GetFiles(extension, SearchOption.AllDirectories);
+            var assemblies = new List<Assembly>();
+            var files = new DirectoryInfo(directory).GetFiles(extension, SearchOption.AllDirectories);
 
-            foreach (FileInfo library in pluginsLibraries)
+
+            foreach (var file in files)
             {
+                var filePath = file.FullName;
                 try
                 {
-                    Assembly assembly = Assembly.LoadFile(library.FullName);//Assembly.Load(File.ReadAllBytes(library.FullName));
+                    var assembly = Hotloader.LoadAssembly(filePath);
 
-                    List<Type> types = RocketHelper.GetTypesFromInterface(assembly, "IRocketPlugin").FindAll(x => !x.IsAbstract);
+                    if (assembly is null)
+                        throw new Exception($"Failed to load assembly {filePath}");
+
+                    var assemblyManifest = assembly.GetName();
+
+                    var types = RocketHelper.GetTypesFromInterface(assembly, nameof(IRocketPlugin))
+                        .FindAll(x => !x.IsAbstract);
 
                     if (types.Count == 1)
                     {
-                        Logging.Logger.Log("Loading "+ assembly.GetName().Name +" from "+ assembly.Location);
+                        Logger.Log(
+                            $"Loading {assemblyManifest.Name} v{assemblyManifest.Version} from {filePath}");
                         assemblies.Add(assembly);
-                    }
-                    else
-                    {
-                        Logging.Logger.LogError("Invalid or outdated plugin assembly: " + assembly.GetName().Name);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logging.Logger.LogError(ex, "Could not load plugin assembly: " + library.Name);
+                    Logger.LogError(ex, $"Could not load assembly: {filePath}");
                 }
             }
+
             return assemblies;
         }
     }

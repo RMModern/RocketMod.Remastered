@@ -1,0 +1,11 @@
+{
+	"Name": "Rocket.Unturned",
+	"Version": "5.0.0.0",
+	"Assemblies":
+	[
+        {
+			"Path": "/Rocket.Unturned.Bootstrap.dll",
+            "Role": "Server"
+        }
+	]
+}

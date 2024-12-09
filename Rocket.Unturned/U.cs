@@ -22,7 +22,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Rocket.Unturned.Logging;
 using UnityEngine;
+using Logger = Rocket.Core.Logging.Logger;
 
 namespace Rocket.Unturned
 {
@@ -136,40 +138,54 @@ namespace Rocket.Unturned
         public static UnturnedConsole Console;
 
 
-        public void initialize()
+        void IModuleNexus.initialize()
         {
-            if (Dedicator.isDedicated)
-            {
-                rocketGameObject = new GameObject("Rocket");
-                DontDestroyOnLoad(rocketGameObject);
+            if (!Dedicator.isDedicated)
+                return;
+            
+            Logger.LoggingService = new CommandWindowLoggingService();
+            
+            rocketGameObject = new GameObject("Rocket");
+            DontDestroyOnLoad(rocketGameObject);
 
-                if(System.Environment.OSVersion.Platform == PlatformID.Unix || System.Environment.OSVersion.Platform == PlatformID.MacOSX)
+            if(System.Environment.OSVersion.Platform == PlatformID.Unix || System.Environment.OSVersion.Platform == PlatformID.MacOSX)
 #pragma warning disable CS0618
-                    Console = rocketGameObject.AddComponent<UnturnedConsole>();
+                Console = rocketGameObject.AddComponent<UnturnedConsole>();
 #pragma warning restore CS0618
-                
-                CommandWindow.Log("Rocket Unturned v" + Assembly.GetExecutingAssembly().GetName().Version.ToString() + " for Unturned v" + Provider.APP_VERSION);
+            
+            System.Console.Clear();
+            System.Console.ForegroundColor = ConsoleColor.Cyan;
+            Logger.Log($"RocketMod.Remastered v{Assembly.GetExecutingAssembly().GetName().Version}" +
+                       $" for Unturned v{Provider.APP_VERSION}", ConsoleColor.Magenta);
 
-                IPluginAdvertising pluginAdvertising = PluginAdvertising.Get();
-                pluginAdvertising.PluginFrameworkName = "rocket";
+            IPluginAdvertising pluginAdvertising = PluginAdvertising.Get();
+            pluginAdvertising.PluginFrameworkName = "rocket";
 
-                R.OnRockedInitialized += () =>
-                {
-                    Instance.Initialize();
-                };
+            R.OnRockedInitialized += () =>
+            {
+                Instance.Initialize();
+            };
 
-                Provider.onServerHosted += () =>
-                {
-                    rocketGameObject.TryAddComponent<U>();
-                    rocketGameObject.TryAddComponent<R>();
-                };
-            }
+            Provider.onServerHosted += PostInitialize;
         }
-        
+
+        private void PostInitialize()
+        {
+            rocketGameObject.TryAddComponent<U>();
+            rocketGameObject.TryAddComponent<R>();
+        }
+
         private void Awake()
         {
             Instance = this;
             Environment.Initialize();
+            
+            Application.quitting += OnDestroy;
+        }
+
+        private void OnDestroy()
+        {
+            Shutdown();
         }
 
         internal void Initialize()
@@ -313,14 +329,17 @@ namespace Rocket.Unturned
             Settings.Load();
         }
 
-        public void shutdown()
+        void IModuleNexus.shutdown()
         {
             Shutdown();
         }
 
         public void Shutdown()
         {
-
+            Destroy(U.Instance);
+            U.Instance = null;
+            Destroy(R.Instance);
+            R.Instance = null;
         }
 
         public string InstanceId

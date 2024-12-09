@@ -1,0 +1,30 @@
+﻿<Project>
+
+	<PropertyGroup>
+		<PublicizerClearCacheOnClean>true</PublicizerClearCacheOnClean>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="PolySharp" Version="*"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Publicize Include="Assembly-CSharp"/>
+		
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.CommandWindow.insideExplicitLogging"/>
+		<!-- Events  -->
+		<!-- SDG.Unturned.*.On*_Global -->
+		<DoNotPublicize Include="Assembly-CSharp" MemberPattern="^SDG\.Unturned\.(.*)\.([Oo]n.*\_Global)$"/> 
+		<DoNotPublicize Include="Assembly-CSharp:SDG.Unturned.Player.onPlayerStatIncremented"/>
+		<DoNotPublicize Include="Assembly-CSharp:SDG.Unturned.PlayerLife.onPlayerDied"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Krafs.Publicizer" Version="2.3.0"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="OpenMod.UnityEngine.Redist" Version="2021.3.29.1" ExcludeAssets="runtime"/>
+	</ItemGroup>
+
+</Project>

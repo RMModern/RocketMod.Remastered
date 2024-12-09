@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net48</TargetFramework>
+		<LangVersion>preview</LangVersion>
+		<Nullable>annotations</Nullable>
+		<OutDir>$(SolutionDir)build/Rocket.Unturned/</OutDir>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="netstandard/**"/>
+		<Content Include="netstandard/**" CopyToOutputDirectory="PreserveNewest"/>
+	</ItemGroup>
+
+	<PropertyGroup>
+		<PublicizerClearCacheOnClean>true</PublicizerClearCacheOnClean>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Publicize Include="Assembly-CSharp"/>
+		<DoNotPublicize Include="Assembly-CSharp:SDG.Framework.Modules.ModuleHook.PreVanillaAssemblyResolve"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Krafs.Publicizer" Version="2.3.0"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="OpenMod.UnityEngine.Redist" Version="2021.3.29.1" ExcludeAssets="runtime"/>
+		<PackageReference Include="OpenMod.Unturned.Redist" Version="3.23.12.3" ExcludeAssets="runtime"/>
+	</ItemGroup>
+
+</Project>
