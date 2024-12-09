@@ -289,7 +289,7 @@ namespace Rocket.Core.Commands
                 }
             }
 
-            Type plugin = R.Plugins.GetMainTypeFromAssembly(assembly);
+            Type? plugin = R.Plugins.GetMainTypeFromAssembly(assembly);
             if (plugin != null)
             {
                 MethodInfo[] methodInfos = plugin.GetMethods(BindingFlags.Public | BindingFlags.Instance);

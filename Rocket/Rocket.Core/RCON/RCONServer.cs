@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Rocket.API;
-using Logger = Rocket.Core.Logging.Logger;
 
 namespace Rocket.Core.RCON
 {

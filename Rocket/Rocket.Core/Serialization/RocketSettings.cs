@@ -84,6 +84,9 @@ namespace Rocket.Core.Serialization
         [XmlElement("RCON")]
         public RemoteConsole RCON = new RemoteConsole();
 
+        [XmlElement("LogLibararies")]
+        public bool LogLibraries = true;
+
         [XmlElement("AutomaticShutdown")]
         public AutomaticShutdown AutomaticShutdown = new AutomaticShutdown();
 

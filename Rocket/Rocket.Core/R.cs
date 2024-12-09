@@ -10,7 +10,6 @@ using Rocket.API.Extensions;
 using Rocket.Core.Serialization;
 using Rocket.API.Collections;
 using Rocket.Core.Extensions;
-using Rocket.Core.Logging;
 using Rocket.Core.Commands;
 using System.Reflection;
 
@@ -47,6 +46,7 @@ namespace Rocket.Core
         private void Awake()
         {
             Instance = this;
+            Application.quitting += OnDestroy;
 
             Implementation = (IRocketImplementation)GetComponent(typeof(IRocketImplementation));
 
@@ -60,6 +60,9 @@ namespace Rocket.Core
         internal void Initialize()
         {   
             Environment.Initialize();
+            
+            RocketPatcher.PatchRocket();
+            
             try
             {
                 Implementation.OnRocketImplementationInitialized += () =>
@@ -88,6 +91,20 @@ namespace Rocket.Core
             {
                 Logging.Logger.LogException(ex);
             }
+        }
+
+        internal void Shutdown()
+        {
+            RocketPatcher.Unpatch();
+            
+            Destroy(Plugins);
+            Destroy(Commands);
+            Destroy(Permissions as MonoBehaviour);
+        }
+        
+        internal void OnDestroy()
+        {
+            Shutdown();
         }
 
         public static string Translate(string translationKey, params object[] placeholder)
