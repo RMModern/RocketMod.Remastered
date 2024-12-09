@@ -9,14 +9,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Publicize Include="Assembly-CSharp"/>
-		
-		<Publicize Include="Assembly-CSharp:SDG.Unturned.CommandWindow.insideExplicitLogging"/>
-		<!-- Events  -->
-		<!-- SDG.Unturned.*.On*_Global -->
-		<DoNotPublicize Include="Assembly-CSharp" MemberPattern="^SDG\.Unturned\.(.*)\.([Oo]n.*\_Global)$"/> 
-		<DoNotPublicize Include="Assembly-CSharp:SDG.Unturned.Player.onPlayerStatIncremented"/>
-		<DoNotPublicize Include="Assembly-CSharp:SDG.Unturned.PlayerLife.onPlayerDied"/>
+		<Publicize Include="Assembly-CSharp" IncludeCompilerGeneratedMembers="false"/>
 	</ItemGroup>
 
 	<ItemGroup>
