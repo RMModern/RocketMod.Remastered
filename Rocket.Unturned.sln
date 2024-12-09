@@ -21,19 +21,19 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rocket.Unturned.Bootstrap",
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "General Files", "General Files", "{E7AB999E-C718-4AFB-B19D-DBA483BF8CE4}"
 	ProjectSection(SolutionItems) = preProject
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.editorconfig = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.editorconfig
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.gitignore = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.gitignore
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\CHANGELOG.md = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\CHANGELOG.md
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\LICENSE.md = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\LICENSE.md
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\README.md = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\README.md
+		.editorconfig = .editorconfig
+		.gitignore = .gitignore
+		CHANGELOG.md = CHANGELOG.md
+		LICENSE.md = LICENSE.md
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Github", "Github", "{25E6F974-DCFA-4FF2-81A9-B36DF14190D8}"
-	ProjectSection(SolutionItems) = preProject
-		..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.github\workflows\ci.yml = ..\..\..\..\MegaDisk\plugins\RocketMod.Remastered\.github\workflows\ci.yml
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{65309660-1083-4B71-BE70-9BCF746DE846}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
