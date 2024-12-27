@@ -1,18 +1,19 @@
-name: build, test, release
+name: ci
 
 on:
     push:
-        branches: [ "main" ]
+        branches: [ "main", "dev" ]
     pull_request:
         branches: [ "main" ]
+    schedule:
+        - cron: '0 0 * * *' # Every day at midnight
 
 jobs:
     build:
-        
-        runs-on: windows-latest
-        
+        if: github.event_name != 'schedule'
+        runs-on: ubuntu-latest
         steps:
-            - name: Checkout Code
+            - name: Checkout
               uses: actions/checkout@v4
 
             - name: Setup dotnet
@@ -30,35 +31,98 @@ jobs:
             - name: Test
               run: dotnet test -c Release --no-build --verbosity normal
 
-            - name: Upload Artifact
+            - name: Upload build artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: release
-                  path: build\
+                  name: build
+                  path: build/
 
-            - name: Create release.zip
-              shell: pwsh
+    release:
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Download artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: build
+                  path: build/
+                  
+            - name: Create build archive
               run: |
-                  Compress-Archive build\Rocket.Unturned release.zip
+                cd build
+                zip -r "build.zip" "Rocket.Unturned/"
+                cd ..
 
-            - name: Create Release
+            - name: Create draft release
               id: create_release
               uses: actions/create-release@v1
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                  tag_name: Workflow${{ github.run_id }}
+                  tag_name: ${{ github.GITHUB_SHA }}
                   release_name: ${{ github.actor }} workflow release
                   draft: true
                   prerelease: false
 
-            - name: Upload Release Asset
+            - name: Upload release asset
               id: upload-release-asset
               uses: actions/upload-release-asset@v1
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
                   upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./release.zip
+                  asset_path: build/build.zip
                   asset_name: release.zip
                   asset_content_type: application/zip
+
+    compare_release:
+        needs: build
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                repo: [ "SmartlyDressedGames/Legally-Distinct-Missile" ]
+
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+
+            -   name: Set up curl & unzip & jq
+                run: sudo apt-get update && sudo apt-get install -y curl unzip jq
+
+            -   name: Setup dotnet
+                uses: actions/setup-dotnet@v4
+                with:
+                    dotnet-version: |
+                        9.0.x
+
+            -   name: Install apicompat
+                run: dotnet tool install --global Microsoft.DotNet.ApiCompat.Tool
+
+            -   name: Download artifact
+                uses: actions/download-artifact@v4
+                with:
+                    name: build
+                    path: build/
+
+            -   name: Download latest release from repository
+                run: |
+                    RELEASE_URL=$(curl -s https://api.github.com/repos/${{ matrix.repo }}/releases/latest | jq -r '.assets[0].browser_download_url')
+
+                    if [ -z "$RELEASE_URL" ]; then
+                        echo "release.zip not found in the latest release of '${{ matrix.repo }}'." && exit 1
+                    fi
+
+                    curl -L $RELEASE_URL -o /tmp/release.zip
+
+            -   name: Unzip release
+                run: unzip /tmp/release.zip -d compatibility
+
+            -   name: Compare with release
+                run: |
+                    cd compatibility
+                    chmod +x check_compatibility.sh
+                    ./check_compatibility.sh
